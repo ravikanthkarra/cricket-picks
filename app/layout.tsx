@@ -10,7 +10,10 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'IPL 2026 Picks',
   description: 'Make your IPL 2026 cricket match picks',
-  icons: { icon: '/logos/ipl.jpg' },
+  icons: {
+    icon: '/logos/ipl.jpg',
+    apple: '/logos/ipl.jpg',
+  },
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String
+  displayName   String?
+  role          String   @default("user") // "user" or "admin"
+  createdAt     DateTime @default(now())
+  picks         Pick[]
+  leaderboard   LeaderboardEntry?
+  adminOfLeagues    League[]            @relation("LeagueAdmin")
+  leagueMemberships LeagueMember[]
+  fanboyTeams       UserSeriesFanboy[]
+}
+
+model Team {
+  id           Int     @id @default(autoincrement())
+  name         String
+  shortName    String
+  city         String
+  primaryColor String  @default("#1a1a1a")
+  logoUrl      String?
+  homeMatches  Match[] @relation("HomeTeam")
+  awayMatches  Match[] @relation("AwayTeam")
+  wonMatches   Match[] @relation("WinningTeam")
+  picks        Pick[]
+  fanboyOf     UserSeriesFanboy[]
+}
+
+model Match {
+  id            Int      @id @default(autoincrement())
+  matchNumber   Int
+  weekNumber    Int
+  series        String   @default("IPL 2026")
+  homeTeamId    Int
+  awayTeamId    Int
+  venue         String
+  scheduledAt   DateTime
+  lockTime      DateTime
+  status        String   @default("upcoming") // upcoming | completed | cancelled
+  winningTeamId Int?
+  margin        String?  // BLOWOUT | NAIL_BITER | EASY | null
+  isPlayoff     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  homeTeam      Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam      Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  winningTeam   Team?    @relation("WinningTeam", fields: [winningTeamId], references: [id])
+  picks         Pick[]
+}
+
+model Pick {
+  id             Int      @id @default(autoincrement())
+  userId         String
+  matchId        Int
+  pickedTeamId   Int
+  points         Int?
+  marginPick     String?  // BLOWOUT | NAIL_BITER | EASY | NO_MARGIN | null
+  marginPoints   Int?     // calculated when admin sets match margin
+  fanboyPoints   Int?     // +N if correct pick on user's fanboy team
+  isCorrect      Boolean?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id])
+  match          Match    @relation(fields: [matchId], references: [id])
+  pickedTeam     Team     @relation(fields: [pickedTeamId], references: [id])
+
+  @@unique([userId, matchId])
+}
+
+model League {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  inviteCode  String   @unique
+  adminId     String
+  series      String   @default("IPL 2026")
+  rules        String?
+  marginConfig String?  // JSON: { BLOWOUT:{correct,wrong}, NAIL_BITER:{correct,wrong}, EASY:{correct,wrong}, NO_MARGIN:{correct,wrong} }
+  fanboyPoints Int      @default(2)  // bonus points for correct pick on fanboy team
+  createdAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin    User           @relation("LeagueAdmin", fields: [adminId], references: [id])
+  members  LeagueMember[]
+}
+
+model LeagueMember {
+  id       Int      @id @default(autoincrement())
+  leagueId Int
+  userId   String
+  joinedAt DateTime @default(now())
+
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([leagueId, userId])
+}
+
+model LeaderboardEntry {
+  id           Int      @id @default(autoincrement())
+  userId       String   @unique
+  totalCorrect Int      @default(0)
+  totalPicks   Int      @default(0)
+  rank         Int?
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model UserSeriesFanboy {
+  id          Int       @id @default(autoincrement())
+  userId      String
+  series      String
+  teamId      Int
+  changedAt   DateTime? // null = never changed; set when user changes from original pick
+
+  user   User @relation(fields: [userId], references: [id])
+  team   Team @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, series])
+}

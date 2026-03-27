@@ -25,10 +25,9 @@ const teams = [
   { id: 10, name: 'Lucknow Super Giants',        shortName: 'LSG',  city: 'Lucknow',   primaryColor: '#A72056', logoUrl: '/logos/lsg.jpg'  },
 ]
 
-// Lock time = 12:00 AM EDT (04:00 UTC) on match day
+// Lock time = 1 hour before match start
 function lockTime(scheduledAt) {
-  const edt = new Date(scheduledAt.getTime() - 4 * 3600_000)
-  return new Date(Date.UTC(edt.getUTCFullYear(), edt.getUTCMonth(), edt.getUTCDate(), 4, 0, 0))
+  return new Date(scheduledAt.getTime() - 60 * 60_000)
 }
 
 const matches = [

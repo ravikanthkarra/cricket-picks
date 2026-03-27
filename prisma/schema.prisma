@@ -18,7 +18,7 @@ model User {
   leaderboard   LeaderboardEntry?
   adminOfLeagues    League[]            @relation("LeagueAdmin")
   leagueMemberships LeagueMember[]
-  fanboyTeams       UserSeriesFanboy[]
+  leagueFanboyTeams UserLeagueFanboy[]
 }
 
 model Team {
@@ -32,7 +32,7 @@ model Team {
   awayMatches  Match[] @relation("AwayTeam")
   wonMatches   Match[] @relation("WinningTeam")
   picks        Pick[]
-  fanboyOf     UserSeriesFanboy[]
+  leagueFanboyOf UserLeagueFanboy[]
 }
 
 model Match {
@@ -65,7 +65,6 @@ model Pick {
   points         Int?
   marginPick     String?  // BLOWOUT | NAIL_BITER | EASY | NO_MARGIN | null
   marginPoints   Int?     // calculated when admin sets match margin
-  fanboyPoints   Int?     // +N if correct pick on user's fanboy team
   isCorrect      Boolean?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -78,20 +77,21 @@ model Pick {
 }
 
 model League {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  inviteCode  String   @unique
-  adminId     String
-  series      String   @default("IPL 2026")
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?
+  inviteCode   String   @unique
+  adminId      String
+  series       String   @default("IPL 2026")
   rules        String?
   marginConfig String?  // JSON: { BLOWOUT:{correct,wrong}, NAIL_BITER:{correct,wrong}, EASY:{correct,wrong}, NO_MARGIN:{correct,wrong} }
   fanboyPoints Int      @default(2)  // bonus points for correct pick on fanboy team
   createdAt    DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt    DateTime @updatedAt
 
-  admin    User           @relation("LeagueAdmin", fields: [adminId], references: [id])
-  members  LeagueMember[]
+  admin       User              @relation("LeagueAdmin", fields: [adminId], references: [id])
+  members     LeagueMember[]
+  fanboyTeams UserLeagueFanboy[]
 }
 
 model LeagueMember {
@@ -117,15 +117,16 @@ model LeaderboardEntry {
   user         User     @relation(fields: [userId], references: [id])
 }
 
-model UserSeriesFanboy {
-  id          Int       @id @default(autoincrement())
-  userId      String
-  series      String
-  teamId      Int
-  changedAt   DateTime? // null = never changed; set when user changes from original pick
+model UserLeagueFanboy {
+  id        Int       @id @default(autoincrement())
+  userId    String
+  leagueId  Int
+  teamId    Int
+  changedAt DateTime? // null = never changed; set when user changes from original pick
 
-  user   User @relation(fields: [userId], references: [id])
-  team   Team @relation(fields: [teamId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  league League @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id])
 
-  @@unique([userId, series])
+  @@unique([userId, leagueId])
 }

@@ -45,12 +45,6 @@ export default async function PicksPage({ searchParams }: { searchParams: { week
     if (p.marginPick) marginPickMap[p.matchId] = p.marginPick
   })
 
-  // Fanboy team for this series
-  const fanboyEntry = await prisma.userSeriesFanboy.findUnique({
-    where: { userId_series: { userId: session.user.id, series: selectedSeries } },
-    select: { teamId: true },
-  })
-  const fanboyTeamId = fanboyEntry?.teamId ?? null
 
   return (
     <div>
@@ -89,19 +83,12 @@ export default async function PicksPage({ searchParams }: { searchParams: { week
           </a>
         ))}
       </div>
-      {fanboyTeamId && (
-        <p className="text-xs text-amber-600 mb-4 flex items-center gap-1">
-          <span>⭐</span>
-          <span>Your fanboy team gets a bonus if you pick them correctly.</span>
-        </p>
-      )}
       <PicksWeekView
         matches={matches}
         picksMap={picksMap}
         pointsMap={pointsMap}
         marginPickMap={marginPickMap}
         weekMatchCount={matches.length}
-        fanboyTeamId={fanboyTeamId}
       />
     </div>
   )

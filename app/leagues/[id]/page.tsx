@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
+import { LeagueFanboyPicker } from '@/components/LeagueFanboyPicker'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export default async function LeaguePage({ params }: { params: { id: string } })
 
   const isLeagueAdmin = league.adminId === session.user.id
 
-  // Leaderboard: recalculate using this league's margin config
+  // Leaderboard: recalculate using this league's margin config + per-league fanboy
   const marginConfig = parseMarginConfig(league.marginConfig)
   const memberUserIds = league.members.map(m => m.userId)
 
@@ -35,15 +36,15 @@ export default async function LeaguePage({ params }: { params: { id: string } })
     include: { match: { select: { margin: true } }, user: { select: { username: true, displayName: true } } },
   })
 
-  // Fanboy entries for this series — used to apply per-league fanboy bonus
-  const fanboyEntries = await prisma.userSeriesFanboy.findMany({
-    where: { userId: { in: memberUserIds }, series: league.series },
+  // Per-league fanboy entries
+  const fanboyEntries = await prisma.userLeagueFanboy.findMany({
+    where: { leagueId },
     select: { userId: true, teamId: true },
   })
   const fanboyTeamByUser: Record<string, number> = {}
   for (const f of fanboyEntries) fanboyTeamByUser[f.userId] = f.teamId
 
-  // Group by userId and calculate score using this league's margin config + fanboy bonus
+  // Group by userId and calculate score
   const scoreMap: Record<string, { totalPoints: number; totalPicks: number; username: string; displayName: string | null }> = {}
   for (const pick of memberPicks) {
     if (!scoreMap[pick.userId]) {
@@ -95,6 +96,21 @@ export default async function LeaguePage({ params }: { params: { id: string } })
   }
   const startedWeeks = Object.keys(matchesByWeek).map(Number).sort((a, b) => a - b)
 
+  // Current user's fanboy entry for the picker
+  const myFanboyEntry = await prisma.userLeagueFanboy.findUnique({
+    where: { userId_leagueId: { userId: session.user.id, leagueId } },
+    include: { team: true },
+  })
+  const myFanboyInitial = myFanboyEntry
+    ? { teamId: myFanboyEntry.teamId, changedAt: myFanboyEntry.changedAt?.toISOString() ?? null, team: myFanboyEntry.team }
+    : null
+
+  // All teams for the picker
+  const teams = await prisma.team.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, shortName: true, primaryColor: true, logoUrl: true },
+  })
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -128,7 +144,14 @@ export default async function LeaguePage({ params }: { params: { id: string } })
         </div>
       )}
 
-      {/* Leaderboard */}
+      {/* Fanboy Team Picker */}
+      <LeagueFanboyPicker
+        leagueId={leagueId}
+        teams={teams}
+        initial={myFanboyInitial}
+      />
+
+      {/* Standings */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Standings</h2>
         {entries.length === 0 ? (

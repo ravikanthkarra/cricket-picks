@@ -21,10 +21,7 @@ export function Navbar() {
       <Link href="/picks" className={navClass('/picks')}>My Picks</Link>
       <Link href="/leagues" className={navClass('/leagues')}>Leagues</Link>
       <Link href="/leaderboard" className={navClass('/leaderboard')}>Leaderboard</Link>
-      {session && (
-        <Link href="/profile" className={navClass('/profile')}>Profile</Link>
-      )}
-      {session?.user?.role === 'admin' && (
+{session?.user?.role === 'admin' && (
         <Link href="/admin" className={navClass('/admin')}>Admin</Link>
       )}
     </>

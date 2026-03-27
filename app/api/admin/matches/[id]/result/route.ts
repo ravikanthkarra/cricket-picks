@@ -40,20 +40,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // (League leaderboards recalculate with per-league config at query time.)
     const allPicks = await tx.pick.findMany({
       where: { matchId },
-      select: { id: true, userId: true, pickedTeamId: true, marginPick: true, isCorrect: true },
+      select: { id: true, marginPick: true, isCorrect: true },
     })
-
-    // Load fanboy entries for all users who picked in this match (for this series)
-    const userIdsInMatch = Array.from(new Set(allPicks.map(p => p.userId)))
-    const fanboyEntries = await tx.userSeriesFanboy.findMany({
-      where: { userId: { in: userIdsInMatch }, series: match.series },
-      select: { userId: true, teamId: true },
-    })
-    const fanboyTeamByUser: Record<string, number> = {}
-    for (const f of fanboyEntries) fanboyTeamByUser[f.userId] = f.teamId
-
-    // Global default fanboy bonus value
-    const GLOBAL_FANBOY_BONUS = 2
 
     for (const pick of allPicks) {
       const marginPts = calcMarginPoints(
@@ -62,12 +50,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         pick.isCorrect ?? false,
         DEFAULT_MARGIN_CONFIG
       )
-      // Award fanboy bonus if this is a correct pick on the user's fanboy team
-      const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
-      const fanboyPts = isFanboy && pick.isCorrect ? GLOBAL_FANBOY_BONUS : 0
       await tx.pick.update({
         where: { id: pick.id },
-        data: { marginPoints: marginPts, fanboyPoints: fanboyPts },
+        data: { marginPoints: marginPts },
       })
     }
 
@@ -80,14 +65,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
       const allUserPicks = await tx.pick.findMany({
         where: { userId, isCorrect: { not: null } },
-        select: { points: true, isCorrect: true, marginPoints: true, fanboyPoints: true },
+        select: { points: true, isCorrect: true, marginPoints: true },
       })
 
       const totalPoints = allUserPicks.reduce((sum, p) => {
         const conf = p.isCorrect ? (p.points ?? 1) : 0
         const marg = p.marginPoints ?? 0
-        const fanboy = p.fanboyPoints ?? 0
-        return sum + conf + marg + fanboy
+        return sum + conf + marg
       }, 0)
 
       await tx.leaderboardEntry.upsert({

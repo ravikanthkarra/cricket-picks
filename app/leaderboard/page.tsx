@@ -33,8 +33,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
     }
     const conf = pick.isCorrect ? (pick.points ?? 1) : 0
     const marg = pick.marginPoints ?? 0
-    const fanboy = pick.fanboyPoints ?? 0
-    overallMap[pick.userId].totalPoints += conf + marg + fanboy
+    overallMap[pick.userId].totalPoints += conf + marg
     overallMap[pick.userId].totalPicks += 1
   }
   const overallEntries = Object.entries(overallMap)
@@ -51,8 +50,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
     }
     const conf = pick.isCorrect ? (pick.points ?? 1) : 0
     const marg = pick.marginPoints ?? 0
-    const fanboy = pick.fanboyPoints ?? 0
-    weekMap[week][pick.userId].points += conf + marg + fanboy
+    weekMap[week][pick.userId].points += conf + marg
   }
   const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b)
 

@@ -22,13 +22,12 @@ const MARGIN_OPTIONS = [
   { value: 'NO_MARGIN',  label: 'No Margin',  hint: '(no bonus)' },
 ]
 
-export function PicksWeekView({ matches, picksMap: initialPicksMap, pointsMap: initialPointsMap, marginPickMap: initialMarginPickMap, weekMatchCount, fanboyTeamId }: {
+export function PicksWeekView({ matches, picksMap: initialPicksMap, pointsMap: initialPointsMap, marginPickMap: initialMarginPickMap, weekMatchCount }: {
   matches: Match[]
   picksMap: Record<number, number>
   pointsMap: Record<number, number>
   marginPickMap: Record<number, string>
   weekMatchCount: number
-  fanboyTeamId?: number | null
 }) {
   const [picksMap, setPicksMap] = useState<Record<number, number>>(initialPicksMap)
   const [pointsMap, setPointsMap] = useState<Record<number, number>>(initialPointsMap)
@@ -131,7 +130,6 @@ export function PicksWeekView({ matches, picksMap: initialPicksMap, pointsMap: i
                 const isWinner = match.winningTeam?.id === team.id
                 const isCorrect = isCompleted && isPicked && isWinner
                 const isWrong = isCompleted && isPicked && !isWinner
-                const isFanboy = fanboyTeamId === team.id
 
                 return (
                   <button
@@ -148,14 +146,9 @@ export function PicksWeekView({ matches, picksMap: initialPicksMap, pointsMap: i
                   >
                     <div className="flex items-center gap-3">
                       <TeamBadge shortName={team.shortName} primaryColor={team.primaryColor} logoUrl={team.logoUrl} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="font-bold text-sm" style={{ color: team.primaryColor }}>
-                            {team.shortName}
-                          </span>
-                          {isFanboy && (
-                            <span title="Your fanboy team" className="text-amber-400 text-sm leading-none">⭐</span>
-                          )}
+                      <div>
+                        <div className="font-bold text-sm" style={{ color: team.primaryColor }}>
+                          {team.shortName}
                         </div>
                         <div className="text-gray-500 text-xs">{team.name}</div>
                       </div>

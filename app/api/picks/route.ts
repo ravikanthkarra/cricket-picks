@@ -13,6 +13,25 @@ export async function GET() {
   return NextResponse.json(picks)
 }
 
+async function writeAuditLog(
+  userId: string,
+  matchId: number,
+  pickedTeamId: number | null,
+  points: number | null,
+  marginPick: string | null,
+  status: 'success' | 'rejected',
+  reason: string | null,
+  matchLockTime: Date,
+) {
+  try {
+    await prisma.pickAuditLog.create({
+      data: { userId, matchId, pickedTeamId, points, marginPick, status, reason, matchLockTime },
+    })
+  } catch {
+    // Audit log failure must never break the pick submission
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
@@ -28,16 +47,21 @@ export async function POST(req: NextRequest) {
     const match = await prisma.match.findUnique({ where: { id: Number(matchId) } })
     if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
 
-    // SQLite stores dates as strings — ensure proper Date comparison
     const now = new Date()
     const lockTime = new Date(match.lockTime)
+
     if (now >= lockTime) {
+      await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), points ?? null, marginPick ?? null, 'rejected', 'Picks are locked for this match', lockTime)
       return NextResponse.json({ error: 'Picks are locked for this match' }, { status: 403 })
     }
+
     if (match.status === 'completed' || match.status === 'cancelled') {
+      await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), points ?? null, marginPick ?? null, 'rejected', `Match is ${match.status}`, lockTime)
       return NextResponse.json({ error: 'Match is already completed or cancelled' }, { status: 403 })
     }
+
     if (Number(pickedTeamId) !== match.homeTeamId && Number(pickedTeamId) !== match.awayTeamId) {
+      await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), points ?? null, marginPick ?? null, 'rejected', 'Invalid team for this match', lockTime)
       return NextResponse.json({ error: 'Invalid team for this match' }, { status: 400 })
     }
 
@@ -50,29 +74,25 @@ export async function POST(req: NextRequest) {
       })
 
       if (pts < 1 || pts > weekMatchCount) {
+        await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), pts, marginPick ?? null, 'rejected', `Points ${pts} out of range (1–${weekMatchCount})`, lockTime)
         return NextResponse.json(
           { error: `Points must be between 1 and ${weekMatchCount}` },
           { status: 400 }
         )
       }
 
-      // Get other match IDs in this week (excluding current match)
       const otherWeekMatches = await prisma.match.findMany({
         where: { weekNumber: match.weekNumber, id: { not: Number(matchId) } },
         select: { id: true },
       })
       const otherMatchIds = otherWeekMatches.map(m => m.id)
 
-      // Only check for conflict if there are other matches in the week
       if (otherMatchIds.length > 0) {
         const conflicting = await prisma.pick.findFirst({
-          where: {
-            userId: session.user.id,
-            points: pts,
-            matchId: { in: otherMatchIds },
-          },
+          where: { userId: session.user.id, points: pts, matchId: { in: otherMatchIds } },
         })
         if (conflicting) {
+          await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), pts, marginPick ?? null, 'rejected', `Points ${pts} already used on match ${conflicting.matchId} this week`, lockTime)
           return NextResponse.json(
             { error: `${pts} points already assigned to another match this week` },
             { status: 409 }
@@ -101,6 +121,8 @@ export async function POST(req: NextRequest) {
       },
       include: { pickedTeam: true },
     })
+
+    await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), points ?? null, normalizedMarginPick, 'success', null, lockTime)
 
     return NextResponse.json(pick)
   } catch (error) {

@@ -19,6 +19,7 @@ model User {
   adminOfLeagues    League[]            @relation("LeagueAdmin")
   leagueMemberships LeagueMember[]
   leagueFanboyTeams UserLeagueFanboy[]
+  pickAuditLogs     PickAuditLog[]
 }
 
 model Team {
@@ -115,6 +116,21 @@ model LeaderboardEntry {
   updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id])
+}
+
+model PickAuditLog {
+  id            Int      @id @default(autoincrement())
+  userId        String
+  matchId       Int
+  pickedTeamId  Int?
+  points        Int?
+  marginPick    String?
+  status        String   // "success" | "rejected"
+  reason        String?  // null on success; rejection reason otherwise
+  matchLockTime DateTime // snapshot of lock time at submission — key for disputes
+  submittedAt   DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
 }
 
 model UserLeagueFanboy {

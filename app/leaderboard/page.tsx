@@ -136,7 +136,7 @@ export default async function LeaderboardPage() {
                 <thead>
                   <tr className="text-left text-xs text-gray-400 border-b border-gray-200">
                     <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Player</th>
+                    <th className="px-4 py-3">Fanboy / Player</th>
                     <th className="px-4 py-3 text-right">Points</th>
                     <th className="px-4 py-3 text-right">Picks</th>
                   </tr>
@@ -153,12 +153,14 @@ export default async function LeaderboardPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {fanboyTeamInfoByUser[entry.userId] && (
-                              <TeamBadge
-                                shortName={fanboyTeamInfoByUser[entry.userId].shortName}
-                                primaryColor={fanboyTeamInfoByUser[entry.userId].primaryColor}
-                                logoUrl={fanboyTeamInfoByUser[entry.userId].logoUrl}
-                                size="sm"
-                              />
+                              <span title={`Fanboy: ${fanboyTeamInfoByUser[entry.userId].shortName}`}>
+                                <TeamBadge
+                                  shortName={fanboyTeamInfoByUser[entry.userId].shortName}
+                                  primaryColor={fanboyTeamInfoByUser[entry.userId].primaryColor}
+                                  logoUrl={fanboyTeamInfoByUser[entry.userId].logoUrl}
+                                  size="sm"
+                                />
+                              </span>
                             )}
                             <span className="font-medium">{entry.displayName || entry.username}</span>
                             {isMe && <span className="ml-1 text-xs text-blue-600">(you)</span>}

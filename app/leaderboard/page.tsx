@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic'
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: { series?: string } }) {
   const session = await auth()
-  const now = new Date()
 
   // All available series
   const allSeries = await prisma.match.findMany({
@@ -54,29 +53,6 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   }
   const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b)
 
-  // --- Started matches for this series (for Match Picks section) ---
-  const startedMatches = await prisma.match.findMany({
-    where: { lockTime: { lte: now }, series: selectedSeries },
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-      winningTeam: true,
-      picks: {
-        include: {
-          user: { select: { id: true, username: true, displayName: true } },
-          pickedTeam: true,
-        },
-      },
-    },
-    orderBy: [{ weekNumber: 'asc' }, { scheduledAt: 'asc' }],
-  })
-
-  const matchesByWeek: Record<number, typeof startedMatches> = {}
-  for (const match of startedMatches) {
-    if (!matchesByWeek[match.weekNumber]) matchesByWeek[match.weekNumber] = []
-    matchesByWeek[match.weekNumber].push(match)
-  }
-  const startedWeeks = Object.keys(matchesByWeek).map(Number).sort((a, b) => a - b)
 
   return (
     <div className="space-y-10">
@@ -188,71 +164,6 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {/* Match picks — revealed after match starts */}
-      {startedMatches.length > 0 && (
-        <div>
-          <h2 className="text-xl font-bold mb-2">Match Picks</h2>
-          <p className="text-sm text-gray-500 mb-5">Picks are revealed once a match starts.</p>
-          <div className="space-y-8">
-            {startedWeeks.map(week => (
-              <div key={week}>
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Week {week}</h3>
-                <div className="space-y-4">
-                  {matchesByWeek[week].map(match => {
-                    const isCompleted = match.status === 'completed'
-                    return (
-                      <div key={match.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                          <span className="font-medium text-sm">
-                            {match.homeTeam.shortName} vs {match.awayTeam.shortName}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {isCompleted ? `${match.winningTeam?.shortName ?? '?'} won` : 'In progress'}
-                          </span>
-                        </div>
-                        {match.picks.length === 0 ? (
-                          <p className="px-4 py-3 text-sm text-gray-400">No picks submitted.</p>
-                        ) : (
-                          <div className="divide-y divide-gray-100">
-                            {match.picks.map(pick => {
-                              const isMe = session?.user?.id === pick.user.id
-                              const correct = isCompleted && pick.isCorrect
-                              const wrong = isCompleted && pick.isCorrect === false
-                              return (
-                                <div key={pick.id}
-                                  className={`px-4 py-2 flex items-center justify-between text-sm ${isMe ? 'bg-blue-50' : ''}`}>
-                                  <span className="text-gray-700">
-                                    {pick.user.displayName || pick.user.username}
-                                    {isMe && <span className="ml-1 text-xs text-blue-600">(you)</span>}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {pick.points && (
-                                      <span className="text-xs text-gray-400">{pick.points}pt</span>
-                                    )}
-                                    <span className={`font-medium ${
-                                      correct ? 'text-green-600' : wrong ? 'text-red-500' : 'text-gray-700'
-                                    }`}>
-                                      {pick.pickedTeam.shortName}
-                                      {correct && ' ✓'}
-                                      {wrong && ' ✗'}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

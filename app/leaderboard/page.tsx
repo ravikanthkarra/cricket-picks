@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
+import { TeamBadge } from '@/components/TeamBadge'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,10 +52,14 @@ export default async function LeaderboardPage() {
 
       const fanboyEntries = await prisma.userLeagueFanboy.findMany({
         where: { leagueId: league.id },
-        select: { userId: true, teamId: true },
+        include: { team: { select: { id: true, shortName: true, primaryColor: true, logoUrl: true } } },
       })
       const fanboyTeamByUser: Record<string, number> = {}
-      for (const f of fanboyEntries) fanboyTeamByUser[f.userId] = f.teamId
+      const fanboyTeamInfoByUser: Record<string, { id: number; shortName: string; primaryColor: string; logoUrl: string | null }> = {}
+      for (const f of fanboyEntries) {
+        fanboyTeamByUser[f.userId] = f.teamId
+        fanboyTeamInfoByUser[f.userId] = f.team
+      }
 
       // Overall score map
       const scoreMap: Record<string, { totalPoints: number; totalPicks: number; username: string; displayName: string | null }> = {}
@@ -95,7 +100,7 @@ export default async function LeaderboardPage() {
 
       const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b)
 
-      return { league, overall, weekMap, weeks }
+      return { league, overall, weekMap, weeks, fanboyTeamInfoByUser }
     })
   )
 
@@ -103,7 +108,7 @@ export default async function LeaderboardPage() {
     <div className="space-y-12">
       <h1 className="text-2xl font-bold">Leaderboard</h1>
 
-      {leagueStandings.map(({ league, overall, weekMap, weeks }) => (
+      {leagueStandings.map(({ league, overall, weekMap, weeks, fanboyTeamInfoByUser }) => (
         <div key={league.id} className="space-y-6">
           {/* League header */}
           <div className="flex items-center justify-between">
@@ -146,8 +151,18 @@ export default async function LeaderboardPage() {
                           {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-medium">{entry.displayName || entry.username}</span>
-                          {isMe && <span className="ml-2 text-xs text-blue-600">(you)</span>}
+                          <div className="flex items-center gap-2">
+                            {fanboyTeamInfoByUser[entry.userId] && (
+                              <TeamBadge
+                                shortName={fanboyTeamInfoByUser[entry.userId].shortName}
+                                primaryColor={fanboyTeamInfoByUser[entry.userId].primaryColor}
+                                logoUrl={fanboyTeamInfoByUser[entry.userId].logoUrl}
+                                size="sm"
+                              />
+                            )}
+                            <span className="font-medium">{entry.displayName || entry.username}</span>
+                            {isMe && <span className="ml-1 text-xs text-blue-600">(you)</span>}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right text-blue-600 font-bold">{entry.totalPoints}</td>
                         <td className="px-4 py-3 text-right text-gray-500">{entry.totalPicks}</td>

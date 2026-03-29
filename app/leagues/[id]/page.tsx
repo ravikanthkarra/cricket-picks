@@ -236,10 +236,11 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                                 if (!pick.isCorrect) {
                                   breakdown = '0 pts'
                                 } else {
-                                  const parts: string[] = [`Pick ${conf}`]
-                                  if (marg > 0) parts.push(`Margin Bonus ${marg}`)
-                                  if (fanboyPts > 0) parts.push(`Fanboy Team ${fanboyPts}`)
-                                  breakdown = parts.join(' + ')
+                                  let bd = `Pick ${conf}`
+                                  if (marg > 0) bd += ` + Margin Bonus ${marg}`
+                                  else if (marg < 0) bd += ` - Margin Penalty ${Math.abs(marg)}`
+                                  if (fanboyPts > 0) bd += ` + Fanboy Team ${fanboyPts}`
+                                  breakdown = bd
                                 }
                               }
 

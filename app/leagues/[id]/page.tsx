@@ -227,20 +227,19 @@ export default async function LeaguePage({ params }: { params: { id: string } })
 
                               // Points breakdown for completed matches
                               let breakdown: string | null = null
+                              let totalPts: number | null = null
                               if (isCompleted && pick.isCorrect !== null) {
                                 const conf = pick.isCorrect ? (pick.points ?? 1) : 0
                                 const marg = calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
                                 const fanboyPts = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
-                                const bonusTotal = marg + fanboyPts
+                                totalPts = conf + marg + fanboyPts
                                 if (!pick.isCorrect) {
                                   breakdown = '0 pts'
-                                } else if (bonusTotal === 0) {
-                                  breakdown = `Pick ${conf}`
                                 } else {
-                                  const parts: string[] = []
+                                  const parts: string[] = [`Pick ${conf}`]
                                   if (marg > 0) parts.push(`Margin Bonus ${marg}`)
                                   if (fanboyPts > 0) parts.push(`Fanboy Team ${fanboyPts}`)
-                                  breakdown = `Pick ${conf} + Bonus ${bonusTotal} (${parts.join(' + ')})`
+                                  breakdown = parts.join(' + ')
                                 }
                               }
 
@@ -253,6 +252,9 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                                   </span>
                                   <div className="flex flex-col items-end gap-0.5">
                                     <div className="flex items-center gap-1.5">
+                                      {totalPts !== null && (
+                                        <span className="font-bold text-blue-600">{totalPts}</span>
+                                      )}
                                       {isFanboy && (
                                         <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
                                       )}

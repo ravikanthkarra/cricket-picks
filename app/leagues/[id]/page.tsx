@@ -224,27 +224,49 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                               const correct = isCompleted && pick.isCorrect
                               const wrong = isCompleted && pick.isCorrect === false
                               const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
+
+                              // Points breakdown for completed matches
+                              let breakdown: string | null = null
+                              if (isCompleted && pick.isCorrect !== null) {
+                                const conf = pick.isCorrect ? (pick.points ?? 1) : 0
+                                const marg = calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
+                                const fanboyPts = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
+                                const bonusTotal = marg + fanboyPts
+                                if (!pick.isCorrect) {
+                                  breakdown = '0 pts'
+                                } else if (bonusTotal === 0) {
+                                  breakdown = `Pick ${conf}`
+                                } else {
+                                  const parts: string[] = []
+                                  if (marg > 0) parts.push(`Margin Bonus ${marg}`)
+                                  if (fanboyPts > 0) parts.push(`Fanboy Team ${fanboyPts}`)
+                                  breakdown = `Pick ${conf} + Bonus ${bonusTotal} (${parts.join(' + ')})`
+                                }
+                              }
+
                               return (
                                 <div key={pick.id}
-                                  className={`px-4 py-2 flex items-center justify-between text-sm ${isMe ? 'bg-blue-50' : ''}`}>
+                                  className={`px-4 py-2.5 flex items-center justify-between text-sm ${isMe ? 'bg-blue-50' : ''}`}>
                                   <span className="text-gray-700">
                                     {pick.user.displayName || pick.user.username}
                                     {isMe && <span className="ml-1 text-xs text-blue-600">(you)</span>}
                                   </span>
-                                  <div className="flex items-center gap-2">
-                                    {pick.points && (
-                                      <span className="text-xs text-gray-400">{pick.points}pt</span>
+                                  <div className="flex flex-col items-end gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      {isFanboy && (
+                                        <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
+                                      )}
+                                      <span className={`font-medium ${
+                                        correct ? 'text-green-600' : wrong ? 'text-red-500' : 'text-gray-700'
+                                      }`}>
+                                        {pick.pickedTeam.shortName}
+                                        {correct && ' ✓'}
+                                        {wrong && ' ✗'}
+                                      </span>
+                                    </div>
+                                    {breakdown && (
+                                      <span className="text-xs text-gray-400">{breakdown}</span>
                                     )}
-                                    {isFanboy && (
-                                      <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
-                                    )}
-                                    <span className={`font-medium ${
-                                      correct ? 'text-green-600' : wrong ? 'text-red-500' : 'text-gray-700'
-                                    }`}>
-                                      {pick.pickedTeam.shortName}
-                                      {correct && ' ✓'}
-                                      {wrong && ' ✗'}
-                                    </span>
                                   </div>
                                 </div>
                               )

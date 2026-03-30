@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { JoinLeagueForm } from '@/components/JoinLeagueForm'
+import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,50 +16,180 @@ export default async function LeaguesPage() {
     include: {
       league: {
         include: {
-          admin: { select: { username: true, displayName: true } },
-          _count: { select: { members: true } },
+          admin: { select: { id: true, username: true, displayName: true } },
+          members: { select: { userId: true } },
         },
       },
     },
     orderBy: { joinedAt: 'asc' },
   })
 
-  const leagues = memberships.map(m => m.league)
+  const now = new Date()
+
+  const leagueData = await Promise.all(
+    memberships.map(async ({ league }) => {
+      const memberUserIds = league.members.map(m => m.userId)
+      const marginConfig = parseMarginConfig(league.marginConfig)
+
+      const fanboyEntries = await prisma.userLeagueFanboy.findMany({
+        where: { leagueId: league.id },
+        select: { userId: true, teamId: true },
+      })
+      const fanboyTeamByUser: Record<string, number> = {}
+      for (const f of fanboyEntries) fanboyTeamByUser[f.userId] = f.teamId
+
+      const startedMatches = await prisma.match.findMany({
+        where: { series: league.series, lockTime: { lte: now } },
+        include: {
+          homeTeam: true,
+          awayTeam: true,
+          winningTeam: true,
+          picks: {
+            where: { userId: { in: memberUserIds } },
+            include: {
+              user: { select: { id: true, username: true, displayName: true } },
+              pickedTeam: true,
+            },
+          },
+        },
+        orderBy: [{ weekNumber: 'asc' }, { scheduledAt: 'asc' }],
+      })
+
+      const matchesByWeek: Record<number, typeof startedMatches> = {}
+      for (const match of startedMatches) {
+        if (!matchesByWeek[match.weekNumber]) matchesByWeek[match.weekNumber] = []
+        matchesByWeek[match.weekNumber].push(match)
+      }
+      const weeks = Object.keys(matchesByWeek).map(Number).sort((a, b) => a - b)
+
+      return { league, marginConfig, fanboyTeamByUser, matchesByWeek, weeks }
+    })
+  )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Leagues</h1>
+        <h1 className="text-2xl font-bold">All Players Picks</h1>
         <Link href="/leagues/new"
           className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded text-sm">
           + Create League
         </Link>
       </div>
 
-      {leagues.length === 0 ? (
+      {leagueData.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg mb-2">You haven&apos;t joined any leagues yet.</p>
           <p className="text-sm">Create one or enter an invite code below.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {leagues.map(league => (
-            <Link key={league.id} href={`/leagues/${league.id}`}
-              className="bg-white border border-gray-200 hover:border-blue-500/50 rounded-xl p-5 transition-colors">
-              <div className="flex justify-between items-start mb-2">
-                <h2 className="font-bold text-lg text-gray-900">{league.name}</h2>
-                {league.adminId === session.user.id && (
-                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Admin</span>
-                )}
+        <div className="space-y-12">
+          {leagueData.map(({ league, marginConfig, fanboyTeamByUser, matchesByWeek, weeks }) => (
+            <div key={league.id} className="space-y-4">
+              {/* League header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">{league.name}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {league.series} · {league.members.length} member{league.members.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Link href={`/leagues/${league.id}`} className="text-sm text-blue-600 hover:underline">
+                  League Settings →
+                </Link>
               </div>
-              {league.description && (
-                <p className="text-gray-500 text-sm mb-3">{league.description}</p>
+
+              {weeks.length === 0 ? (
+                <p className="text-sm text-gray-400">No matches started yet.</p>
+              ) : (
+                <div className="space-y-6">
+                  {weeks.map(week => (
+                    <div key={week}>
+                      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Week {week}</h3>
+                      <div className="space-y-3">
+                        {matchesByWeek[week].map(match => {
+                          const isCompleted = match.status === 'completed'
+                          return (
+                            <div key={match.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                <span className="font-medium text-sm">
+                                  M{match.matchNumber} · {match.homeTeam.shortName} vs {match.awayTeam.shortName}
+                                </span>
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                  isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {isCompleted ? `${match.winningTeam?.shortName ?? '?'} won` : 'In progress'}
+                                </span>
+                              </div>
+
+                              {match.picks.length === 0 ? (
+                                <p className="px-4 py-3 text-sm text-gray-400">No picks submitted.</p>
+                              ) : (
+                                <div className="divide-y divide-gray-100">
+                                  {match.picks.map(pick => {
+                                    const isMe = session.user.id === pick.user.id
+                                    const correct = isCompleted && pick.isCorrect
+                                    const wrong = isCompleted && pick.isCorrect === false
+                                    const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
+
+                                    let breakdown: string | null = null
+                                    let totalPts: number | null = null
+                                    if (isCompleted && pick.isCorrect !== null) {
+                                      const conf = pick.isCorrect ? (pick.points ?? 1) : 0
+                                      const marg = calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
+                                      const fanboyPts = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
+                                      totalPts = conf + marg + fanboyPts
+                                      if (!pick.isCorrect) {
+                                        breakdown = '0 pts'
+                                      } else {
+                                        let bd = `Pick ${conf}`
+                                        if (marg > 0) bd += ` + Margin Bonus ${marg}`
+                                        else if (marg < 0) bd += ` - Margin Penalty ${Math.abs(marg)}`
+                                        if (fanboyPts > 0) bd += ` + Fanboy Team ${fanboyPts}`
+                                        breakdown = bd
+                                      }
+                                    }
+
+                                    return (
+                                      <div key={pick.id}
+                                        className={`px-4 py-2.5 flex items-center justify-between text-sm ${isMe ? 'bg-blue-50' : ''}`}>
+                                        <span className="text-gray-700">
+                                          {pick.user.displayName || pick.user.username}
+                                          {isMe && <span className="ml-1 text-xs text-blue-600">(you)</span>}
+                                        </span>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                          <div className="flex items-center gap-1.5">
+                                            {totalPts !== null && (
+                                              <span className="font-bold text-blue-600">{totalPts}</span>
+                                            )}
+                                            {isFanboy && (
+                                              <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
+                                            )}
+                                            <span className={`font-medium ${
+                                              correct ? 'text-green-600' : wrong ? 'text-red-500' : 'text-gray-700'
+                                            }`}>
+                                              {pick.pickedTeam.shortName}
+                                              {correct && ' ✓'}
+                                              {wrong && ' ✗'}
+                                            </span>
+                                          </div>
+                                          {breakdown && (
+                                            <span className="text-xs text-gray-400">{breakdown}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-              <div className="flex items-center gap-4 text-xs text-gray-400">
-                <span>{league._count.members} member{league._count.members !== 1 ? 's' : ''}</span>
-                <span>by {league.admin.displayName || league.admin.username}</span>
-              </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

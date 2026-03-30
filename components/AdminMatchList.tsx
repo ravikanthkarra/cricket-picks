@@ -18,7 +18,7 @@ const MARGIN_OPTIONS = [
 ]
 
 export function AdminMatchList({ matches }: { matches: Match[] }) {
-  const [results, setResults] = useState<Record<number, 'home' | 'away' | null>>(
+  const [results, setResults] = useState<Record<number, 'home' | 'away' | 'no_result' | null>>(
     Object.fromEntries(matches.map(m => [m.id, null]))
   )
   const [margins, setMargins] = useState<Record<number, string>>(
@@ -31,15 +31,22 @@ export function AdminMatchList({ matches }: { matches: Match[] }) {
   async function submitResult(match: Match) {
     const pick = results[match.id]
     if (!pick) return
-    const winningTeamId = pick === 'home' ? match.homeTeam.id : match.awayTeam.id
-    const margin = margins[match.id] || null
 
     setSaving(s => ({ ...s, [match.id]: true }))
-    const res = await fetch(`/api/admin/matches/${match.id}/result`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ winningTeamId, margin }),
-    })
+
+    let res: Response
+    if (pick === 'no_result') {
+      res = await fetch(`/api/admin/matches/${match.id}/no-result`, { method: 'PUT' })
+    } else {
+      const winningTeamId = pick === 'home' ? match.homeTeam.id : match.awayTeam.id
+      const margin = margins[match.id] || null
+      res = await fetch(`/api/admin/matches/${match.id}/result`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ winningTeamId, margin }),
+      })
+    }
+
     if (res.ok) {
       setSaved(s => ({ ...s, [match.id]: true }))
     } else {
@@ -81,12 +88,15 @@ export function AdminMatchList({ matches }: { matches: Match[] }) {
                         {match.margin && <span className="text-blue-600 ml-1">· {match.margin.replace('_', ' ')}</span>}
                       </div>
                     )}
+                    {match.status === 'no_result' && (
+                      <div className="text-amber-600 mt-1 font-medium">No Result</div>
+                    )}
                   </div>
                 </div>
 
-                {match.status !== 'completed' && (
+                {match.status !== 'completed' && match.status !== 'no_result' && (
                   <div className="space-y-3 mt-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name={`result-${match.id}`}
                           onChange={() => setResults(r => ({ ...r, [match.id]: 'home' }))}
@@ -99,24 +109,34 @@ export function AdminMatchList({ matches }: { matches: Match[] }) {
                           className="accent-blue-600" />
                         <span className="text-sm" style={{ color: match.awayTeam.primaryColor }}>{match.awayTeam.shortName} won</span>
                       </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name={`result-${match.id}`}
+                          onChange={() => setResults(r => ({ ...r, [match.id]: 'no_result' }))}
+                          className="accent-amber-500" />
+                        <span className="text-sm text-amber-600 font-medium">No Result</span>
+                      </label>
                     </div>
+                    {results[match.id] !== 'no_result' && (
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-500 font-medium whitespace-nowrap">Margin:</label>
+                        <select
+                          value={margins[match.id] ?? ''}
+                          onChange={e => setMargins(m => ({ ...m, [match.id]: e.target.value }))}
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                        >
+                          {MARGIN_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
-                      <label className="text-sm text-gray-500 font-medium whitespace-nowrap">Margin:</label>
-                      <select
-                        value={margins[match.id] ?? ''}
-                        onChange={e => setMargins(m => ({ ...m, [match.id]: e.target.value }))}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
-                      >
-                        {MARGIN_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
                       <button
                         onClick={() => submitResult(match)}
                         disabled={!results[match.id] || saving[match.id] || saved[match.id]}
                         className="text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold px-4 py-1.5 rounded whitespace-nowrap"
                       >
-                        {saving[match.id] ? 'Saving...' : saved[match.id] ? 'Saved ✓' : 'Set Result'}
+                        {saving[match.id] ? 'Saving...' : saved[match.id] ? 'Saved ✓' : results[match.id] === 'no_result' ? 'Set No Result' : 'Set Result'}
                       </button>
                     </div>
                     {errors[match.id] && <span className="text-red-600 text-xs">{errors[match.id]}</span>}

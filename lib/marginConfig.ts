@@ -20,6 +20,20 @@ export function parseMarginConfig(raw: string | null | undefined): MarginConfig 
 }
 
 /**
+ * Confidence points for a pick.
+ * No-result matches award half the assigned confidence points (rounded up) to all players.
+ */
+export function calcConfPoints(
+  points: number | null,
+  isCorrect: boolean | null,
+  matchStatus: string
+): number {
+  if (isCorrect === null) return 0
+  if (matchStatus === 'no_result') return Math.ceil((points ?? 1) / 2)
+  return isCorrect ? (points ?? 1) : 0
+}
+
+/**
  * Scoring rules:
  *  - Wrong team pick                  → 0 (margin ignored entirely)
  *  - Correct team + no margin pick    → 0 margin points

@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Picks are locked for this match' }, { status: 403 })
     }
 
-    if (match.status === 'completed' || match.status === 'cancelled') {
+    if (match.status === 'completed' || match.status === 'cancelled' || match.status === 'no_result') {
       await writeAuditLog(session.user.id, Number(matchId), Number(pickedTeamId), points ?? null, marginPick ?? null, 'rejected', `Match is ${match.status}`, lockTime)
       return NextResponse.json({ error: 'Match is already completed or cancelled' }, { status: 403 })
     }

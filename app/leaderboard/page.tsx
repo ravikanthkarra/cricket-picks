@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
+import { parseMarginConfig, calcMarginPoints, calcConfPoints } from '@/lib/marginConfig'
 import { TeamBadge } from '@/components/TeamBadge'
 
 export const dynamic = 'force-dynamic'
@@ -45,7 +45,7 @@ export default async function LeaderboardPage() {
       const picks = await prisma.pick.findMany({
         where: { userId: { in: memberUserIds }, isCorrect: { not: null }, match: { series: league.series } },
         include: {
-          match: { select: { weekNumber: true, margin: true } },
+          match: { select: { weekNumber: true, margin: true, status: true } },
           user: { select: { id: true, username: true, displayName: true } },
         },
       })
@@ -66,7 +66,7 @@ export default async function LeaderboardPage() {
       const weekMap: Record<number, Record<string, { points: number; username: string; displayName: string | null }>> = {}
 
       for (const pick of picks) {
-        const conf = pick.isCorrect ? (pick.points ?? 1) : 0
+        const conf = calcConfPoints(pick.points, pick.isCorrect, pick.match.status)
         const marg = calcMarginPoints(pick.marginPick, pick.match.margin, pick.isCorrect!, marginConfig)
         const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
         const fanboy = isFanboy && pick.isCorrect ? league.fanboyPoints : 0

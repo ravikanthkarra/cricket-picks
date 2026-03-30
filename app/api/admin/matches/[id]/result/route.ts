@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { DEFAULT_MARGIN_CONFIG, calcMarginPoints } from '@/lib/marginConfig'
+import { DEFAULT_MARGIN_CONFIG, calcMarginPoints, calcConfPoints } from '@/lib/marginConfig'
 import { Prisma } from '@prisma/client'
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -65,11 +65,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
       const allUserPicks = await tx.pick.findMany({
         where: { userId, isCorrect: { not: null } },
-        select: { points: true, isCorrect: true, marginPoints: true },
+        select: { points: true, isCorrect: true, marginPoints: true, match: { select: { status: true } } },
       })
 
       const totalPoints = allUserPicks.reduce((sum, p) => {
-        const conf = p.isCorrect ? (p.points ?? 1) : 0
+        const conf = calcConfPoints(p.points, p.isCorrect, p.match.status)
         const marg = p.marginPoints ?? 0
         return sum + conf + marg
       }, 0)

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { JoinLeagueForm } from '@/components/JoinLeagueForm'
-import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
+import { parseMarginConfig, calcMarginPoints, calcConfPoints } from '@/lib/marginConfig'
 import { TeamBadge } from '@/components/TeamBadge'
 
 export const dynamic = 'force-dynamic'
@@ -103,6 +103,7 @@ export default async function LeaguesPage() {
                       <div className="space-y-3">
                         {matchesByWeek[week].map(match => {
                           const isCompleted = match.status === 'completed'
+                          const isNoResult = match.status === 'no_result'
                           return (
                             <div key={match.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -115,9 +116,9 @@ export default async function LeaguesPage() {
                                   <span>{match.awayTeam.shortName}</span>
                                 </div>
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                  isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                  isCompleted ? 'bg-green-100 text-green-700' : isNoResult ? 'bg-amber-100 text-amber-700' : 'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                  {isCompleted ? `${match.winningTeam?.shortName ?? '?'} won` : 'In progress'}
+                                  {isCompleted ? `${match.winningTeam?.shortName ?? '?'} won` : isNoResult ? 'No Result' : 'In progress'}
                                 </span>
                               </div>
 
@@ -131,14 +132,17 @@ export default async function LeaguesPage() {
                                     const wrong = isCompleted && pick.isCorrect === false
                                     const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
 
+                                    const isSettled = match.status === 'completed' || match.status === 'no_result'
                                     let breakdown: string | null = null
                                     let totalPts: number | null = null
-                                    if (isCompleted && pick.isCorrect !== null) {
-                                      const conf = pick.isCorrect ? (pick.points ?? 1) : 0
-                                      const marg = calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
-                                      const fanboyPts = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
+                                    if (isSettled && pick.isCorrect !== null) {
+                                      const conf = calcConfPoints(pick.points, pick.isCorrect, match.status)
+                                      const marg = match.status === 'no_result' ? 0 : calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
+                                      const fanboyPts = isFanboy && pick.isCorrect && match.status !== 'no_result' ? league.fanboyPoints : 0
                                       totalPts = conf + marg + fanboyPts
-                                      if (!pick.isCorrect) {
+                                      if (match.status === 'no_result') {
+                                        breakdown = `No Result — Pick ${conf} (½ pts)`
+                                      } else if (!pick.isCorrect) {
                                         breakdown = '0 pts'
                                       } else {
                                         let bd = `Pick ${conf}`

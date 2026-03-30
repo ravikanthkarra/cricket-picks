@@ -112,9 +112,14 @@ export default async function LeaguesPage() {
                           return (
                             <div key={match.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                                <span className="font-medium text-sm">
-                                  M{match.matchNumber} · {match.homeTeam.shortName} vs {match.awayTeam.shortName}
-                                </span>
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                  <span className="text-gray-500 text-xs">M{match.matchNumber}</span>
+                                  <TeamBadge shortName={match.homeTeam.shortName} primaryColor={match.homeTeam.primaryColor} logoUrl={match.homeTeam.logoUrl} size="sm" />
+                                  <span>{match.homeTeam.shortName}</span>
+                                  <span className="text-gray-400 font-normal">vs</span>
+                                  <TeamBadge shortName={match.awayTeam.shortName} primaryColor={match.awayTeam.primaryColor} logoUrl={match.awayTeam.logoUrl} size="sm" />
+                                  <span>{match.awayTeam.shortName}</span>
+                                </div>
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                   isCompleted ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                                 }`}>

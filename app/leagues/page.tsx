@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { JoinLeagueForm } from '@/components/JoinLeagueForm'
 import { parseMarginConfig, calcMarginPoints } from '@/lib/marginConfig'
+import { TeamBadge } from '@/components/TeamBadge'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,6 +165,12 @@ export default async function LeaguesPage() {
                                             {isFanboy && (
                                               <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
                                             )}
+                                            <TeamBadge
+                                              shortName={pick.pickedTeam.shortName}
+                                              primaryColor={pick.pickedTeam.primaryColor}
+                                              logoUrl={pick.pickedTeam.logoUrl}
+                                              size="sm"
+                                            />
                                             <span className={`font-medium ${
                                               correct ? 'text-green-600' : wrong ? 'text-red-500' : 'text-gray-700'
                                             }`}>

@@ -69,13 +69,7 @@ export default async function LeaguesPage() {
 
   return (
     <div className="space-y-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">All Players Picks</h1>
-        <Link href="/leagues/new"
-          className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded text-sm">
-          + Create League
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold">All Players Picks</h1>
 
       {leagueData.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

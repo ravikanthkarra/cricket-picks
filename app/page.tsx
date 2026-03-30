@@ -31,10 +31,16 @@ export default async function HomePage() {
         <h1 className="text-4xl font-bold text-blue-600 mb-3">IPL 2026 Picks Challenge</h1>
         <p className="text-gray-500 text-lg mb-6">Pick the winners. Climb the leaderboard. Bragging rights await.</p>
         {session ? (
-          <Link href={`/picks?week=${currentWeek}`}
-            className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-lg text-lg">
-            Make Your Picks
-          </Link>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Link href={`/picks?week=${currentWeek}`}
+              className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-lg text-lg">
+              Make Your Picks
+            </Link>
+            <Link href="/leagues/new"
+              className="inline-block border border-blue-600 text-blue-600 hover:bg-blue-50 font-bold px-8 py-3 rounded-lg text-lg">
+              + Create League
+            </Link>
+          </div>
         ) : (
           <div className="flex gap-4 justify-center">
             <Link href="/register" className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-lg text-lg">

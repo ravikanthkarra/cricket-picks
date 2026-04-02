@@ -40,7 +40,7 @@ export default async function LeaguesPage() {
       for (const f of fanboyEntries) fanboyTeamByUser[f.userId] = f.teamId
 
       const startedMatches = await prisma.match.findMany({
-        where: { series: league.series, lockTime: { lte: now } },
+        where: { series: league.series, scheduledAt: { lte: now } },
         include: {
           homeTeam: true,
           awayTeam: true,

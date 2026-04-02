@@ -73,7 +73,7 @@ export default async function LeaguePage({ params }: { params: { id: string } })
   // Match Picks: started/completed matches in this league's series, with all member picks
   const now = new Date()
   const startedMatches = await prisma.match.findMany({
-    where: { series: league.series, lockTime: { lte: now } },
+    where: { series: league.series, scheduledAt: { lte: now } },
     include: {
       homeTeam: true,
       awayTeam: true,

@@ -24,7 +24,16 @@ export default async function PicksPage({ searchParams }: { searchParams: { week
     orderBy: { weekNumber: 'asc' },
   })
   const weekNumbers = weeks.map(w => w.weekNumber)
-  const selectedWeek = parseInt(searchParams.week ?? String(weekNumbers[0] ?? 1))
+
+  // Default to current week: week of the next upcoming match; fallback to last week
+  const now = new Date()
+  const nextMatch = await prisma.match.findFirst({
+    where: { series: selectedSeries, scheduledAt: { gt: now } },
+    orderBy: { scheduledAt: 'asc' },
+    select: { weekNumber: true },
+  })
+  const currentWeek = nextMatch?.weekNumber ?? weekNumbers[weekNumbers.length - 1] ?? 1
+  const selectedWeek = parseInt(searchParams.week ?? String(currentWeek))
 
   const matches = await prisma.match.findMany({
     where: { weekNumber: selectedWeek, series: selectedSeries },

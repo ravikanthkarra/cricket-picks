@@ -154,7 +154,9 @@ export default async function LeaguesPage({ searchParams }: { searchParams: { we
                                 const isMe = session.user.id === pick.user.id
                                 const correct = isCompleted && pick.isCorrect
                                 const wrong = isCompleted && pick.isCorrect === false
-                                const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
+                                const pickFanboyTeamId = fanboyTeamByUser[pick.userId]
+                                const isFanboy = pickFanboyTeamId === pick.pickedTeamId
+                                const fanboyInMatch = pickFanboyTeamId === match.homeTeam.id || pickFanboyTeamId === match.awayTeam.id
 
                                 const isSettled = isCompleted || isNoResult
                                 let breakdown: string | null = null
@@ -162,10 +164,12 @@ export default async function LeaguesPage({ searchParams }: { searchParams: { we
                                 if (isSettled && pick.isCorrect !== null) {
                                   const conf = calcConfPoints(pick.points, pick.isCorrect, match.status)
                                   const marg = isNoResult ? 0 : calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
-                                  const fanboyPts = isFanboy && pick.isCorrect && !isNoResult ? league.fanboyPoints : 0
+                                  const fanboyPts = isNoResult
+                                    ? (fanboyInMatch ? 1 : 0)
+                                    : (isFanboy && pick.isCorrect ? league.fanboyPoints : 0)
                                   totalPts = conf + marg + fanboyPts
                                   if (isNoResult) {
-                                    breakdown = `No Result — Pick ${conf} (½ pts)`
+                                    breakdown = `No Result — Pick ${conf} (½ pts)${fanboyPts ? ' + Fanboy 1' : ''}`
                                   } else if (!pick.isCorrect) {
                                     breakdown = '0 pts'
                                   } else {
@@ -189,7 +193,7 @@ export default async function LeaguesPage({ searchParams }: { searchParams: { we
                                         {totalPts !== null && (
                                           <span className="font-bold text-blue-600">{totalPts}</span>
                                         )}
-                                        {isFanboy && (
+                                        {(isNoResult ? fanboyInMatch : isFanboy) && (
                                           <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
                                         )}
                                         <TeamBadge

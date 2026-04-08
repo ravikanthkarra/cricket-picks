@@ -33,7 +33,7 @@ export default async function LeaguePage({ params }: { params: { id: string } })
 
   const memberPicks = await prisma.pick.findMany({
     where: { userId: { in: memberUserIds }, isCorrect: { not: null }, match: { series: league.series } },
-    include: { match: { select: { margin: true, status: true } }, user: { select: { username: true, displayName: true } } },
+    include: { match: { select: { margin: true, status: true, homeTeamId: true, awayTeamId: true } }, user: { select: { username: true, displayName: true } } },
   })
 
   // Per-league fanboy entries
@@ -52,8 +52,10 @@ export default async function LeaguePage({ params }: { params: { id: string } })
     }
     const conf = calcConfPoints(pick.points, pick.isCorrect, pick.match.status)
     const marg = calcMarginPoints(pick.marginPick, pick.match.margin, pick.isCorrect!, marginConfig)
-    const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
-    const fanboy = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
+    const fanboyTeamId = fanboyTeamByUser[pick.userId]
+    const fanboy = pick.match.status === 'no_result'
+      ? (fanboyTeamId && (fanboyTeamId === pick.match.homeTeamId || fanboyTeamId === pick.match.awayTeamId) ? 1 : 0)
+      : (fanboyTeamId === pick.pickedTeamId && pick.isCorrect ? league.fanboyPoints : 0)
     scoreMap[pick.userId].totalPoints += conf + marg + fanboy
     scoreMap[pick.userId].totalPicks += 1
   }
@@ -224,7 +226,9 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                               const isMe = session.user.id === pick.user.id
                               const correct = isCompleted && pick.isCorrect
                               const wrong = isCompleted && pick.isCorrect === false
-                              const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
+                              const pickFanboyTeamId = fanboyTeamByUser[pick.userId]
+                              const isFanboy = pickFanboyTeamId === pick.pickedTeamId
+                              const fanboyInMatch = pickFanboyTeamId === match.homeTeam.id || pickFanboyTeamId === match.awayTeam.id
 
                               // Points breakdown for completed / no-result matches
                               const isSettled = match.status === 'completed' || match.status === 'no_result'
@@ -233,10 +237,12 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                               if (isSettled && pick.isCorrect !== null) {
                                 const conf = calcConfPoints(pick.points, pick.isCorrect, match.status)
                                 const marg = match.status === 'no_result' ? 0 : calcMarginPoints(pick.marginPick, match.margin, pick.isCorrect, marginConfig)
-                                const fanboyPts = isFanboy && pick.isCorrect && match.status !== 'no_result' ? league.fanboyPoints : 0
+                                const fanboyPts = match.status === 'no_result'
+                                  ? (fanboyInMatch ? 1 : 0)
+                                  : (isFanboy && pick.isCorrect ? league.fanboyPoints : 0)
                                 totalPts = conf + marg + fanboyPts
                                 if (match.status === 'no_result') {
-                                  breakdown = `No Result — Pick ${conf} (½ pts)`
+                                  breakdown = `No Result — Pick ${conf} (½ pts)${fanboyPts ? ' + Fanboy 1' : ''}`
                                 } else if (!pick.isCorrect) {
                                   breakdown = '0 pts'
                                 } else {
@@ -260,7 +266,7 @@ export default async function LeaguePage({ params }: { params: { id: string } })
                                       {totalPts !== null && (
                                         <span className="font-bold text-blue-600">{totalPts}</span>
                                       )}
-                                      {isFanboy && (
+                                      {(match.status === 'no_result' ? fanboyInMatch : isFanboy) && (
                                         <span title="Fanboy team" className="text-amber-400 text-xs">⭐</span>
                                       )}
                                       <span className={`font-medium ${

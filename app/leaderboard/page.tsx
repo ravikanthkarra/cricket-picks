@@ -45,7 +45,7 @@ export default async function LeaderboardPage() {
       const picks = await prisma.pick.findMany({
         where: { userId: { in: memberUserIds }, isCorrect: { not: null }, match: { series: league.series } },
         include: {
-          match: { select: { weekNumber: true, margin: true, status: true } },
+          match: { select: { weekNumber: true, margin: true, status: true, homeTeamId: true, awayTeamId: true } },
           user: { select: { id: true, username: true, displayName: true } },
         },
       })
@@ -68,8 +68,10 @@ export default async function LeaderboardPage() {
       for (const pick of picks) {
         const conf = calcConfPoints(pick.points, pick.isCorrect, pick.match.status)
         const marg = calcMarginPoints(pick.marginPick, pick.match.margin, pick.isCorrect!, marginConfig)
-        const isFanboy = fanboyTeamByUser[pick.userId] === pick.pickedTeamId
-        const fanboy = isFanboy && pick.isCorrect ? league.fanboyPoints : 0
+        const fanboyTeamId = fanboyTeamByUser[pick.userId]
+        const fanboy = pick.match.status === 'no_result'
+          ? (fanboyTeamId && (fanboyTeamId === pick.match.homeTeamId || fanboyTeamId === pick.match.awayTeamId) ? 1 : 0)
+          : (fanboyTeamId === pick.pickedTeamId && pick.isCorrect ? league.fanboyPoints : 0)
         const pts = conf + marg + fanboy
         const week = pick.match.weekNumber
 
